@@ -1,0 +1,276 @@
+import asyncio
+from aiogram import Bot, Dispatcher, types
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.dispatcher.filters import Command
+
+TOKEN = "7774145166:AAEYCnnYq-tv4pag6b7__EjQgIPzBhcnW4k"
+
+# Инициализация бота
+bot = Bot(token=TOKEN)
+dp = Dispatcher(bot)
+
+# Мультиязычные тексты
+TEXTS = {
+    "ru": {
+        "start": "Привет 👋!\nДобро пожаловать в магазин Spotykey.\nВыберите товар:",
+        "choose_language": "Выберите язык:",
+        "spotify": "Аккаунт Spotify Premium",
+        "youtube": "Подписка на ВАШ аккаунт",
+        "spotify_desc": "🎵 Аккаунт с Spotify Premium\n\nСрок: {months}\n— Без рекламы\n— Скачивание треков\n— Высокое качество звука\n\nЦена: {price}₽\n*Семейная подписка\n\n(ваш аккаунт не должен состоять в семье последние 12 месяцев)",
+        "youtube_desc": "🎵 Подписка Spotify Premium на ВАШ аккаунт\n\nСрок: {months}\n— Без рекламы\n— Скачивание треков\n— Высокое качество звука\n\nЦена: {price}₽\n\n*Семейная подписка\n\n(ваш аккаунт не должен состоять в семье последние 12 месяцев)",
+        "choose_duration": "Выберите срок подписки для {product}",
+        "back": "Назад",
+        "support": "Поддержка",
+        "account_details": "🎉 Ваш аккаунт Spotify Premium!\n\n📧 Email: {email}\n🔑 Пароль от почты: {email_password}\n🌍 Регион: {region}\n🎵 Пароль Spotify: {spotify_password}\n\nСпасибо за покупку!",
+        "payment_wait": "Ожидание оплаты...",
+        "payment_success": "Оплата подтверждена!",
+        "payment_failed": "Оплата не прошла.",
+        "no_accounts": "❌ Аккаунты временно закончились. Обратитесь в поддержку.",
+        "buy": "Купить",
+        "back_to_language": "Назад к выбору языка"
+    },
+    "en": {
+        "start": "Hello 👋!\nWelcome to Spotykey store.\nChoose product:",
+        "choose_language": "Choose language:",
+        "spotify": "Spotify Premium Account",
+        "youtube": "Subscription on YOUR account",
+        "spotify_desc": "🎵 Spotify Premium Account\n\nDuration: {months}\n— No ads\n— Download tracks\n— High quality sound\n\nPrice: {price}₽\n*Family subscription\n\n(your account should not be in a family for the last 12 months)",
+        "youtube_desc": "🎵 Spotify Premium Subscription on YOUR account\n\nDuration: {months}\n— No ads\n— Download tracks\n— High quality sound\n\nPrice: {price}₽\n\n*Family subscription\n\n(your account should not be in a family for the last 12 months)",
+        "choose_duration": "Choose subscription duration for {product}",
+        "back": "Back",
+        "support": "Support",
+        "account_details": "🎉 Your Spotify Premium Account!\n\n📧 Email: {email}\n🔑 Email password: {email_password}\n🌍 Region: {region}\n🎵 Spotify password: {spotify_password}\n\nThank you for your purchase!",
+        "payment_wait": "Waiting for payment...",
+        "payment_success": "Payment confirmed!",
+        "payment_failed": "Payment failed.",
+        "no_accounts": "❌ Accounts temporarily out of stock. Please contact support.",
+        "buy": "Buy",
+        "back_to_language": "Back to language selection"
+    }
+}
+
+# Цены для каждого товара
+PRODUCTS = {
+    "spotify": {
+        6: 799,
+        8: 899,
+        10: 999,
+        12: 1099
+    },
+    "youtube": {
+        6: 799,
+        8: 899,
+        10: 999,
+        12: 1099
+    }
+}
+
+# Простая база данных аккаунтов
+ACCOUNTS_DATABASE = [
+    {
+        'email': 'spotify.account1@mail.com',
+        'email_password': 'password123',
+        'region': 'USA',
+        'spotify_password': 'spotifypass123',
+        'used': False
+    },
+    {
+        'email': 'spotify.account2@mail.com',
+        'email_password': 'password456',
+        'region': 'UK',
+        'spotify_password': 'spotifypass456',
+        'used': False
+    },
+    {
+        'email': 'spotify.account3@mail.com',
+        'email_password': 'password789',
+        'region': 'Germany',
+        'spotify_password': 'spotifypass789',
+        'used': False
+    },
+]
+
+
+def get_next_account():
+    """Получает следующий доступный аккаунт из базы данных"""
+    for account in ACCOUNTS_DATABASE:
+        if not account['used']:
+            account['used'] = True
+            return account
+    return None
+
+
+# Клавиатура выбора языка
+def language_keyboard():
+    kb = InlineKeyboardMarkup()
+    kb.add(
+        InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang_ru"),
+        InlineKeyboardButton(text="🇺🇸 English", callback_data="lang_en")
+    )
+    return kb
+
+
+# Главное меню
+def main_menu(lang="ru"):
+    kb = InlineKeyboardMarkup()
+    kb.add(InlineKeyboardButton(text=TEXTS[lang]["spotify"], callback_data="spotify"))
+    kb.add(InlineKeyboardButton(text=TEXTS[lang]["youtube"], callback_data="youtube"))
+    kb.add(InlineKeyboardButton(text=TEXTS[lang]["back_to_language"], callback_data="back_to_language"))
+    kb.add(InlineKeyboardButton(text=TEXTS[lang]["support"], url="https://t.me/spotykey_support"))
+    return kb
+
+
+# Кнопки выбора срока подписки
+def duration_menu(product, lang="ru"):
+    kb = InlineKeyboardMarkup()
+    if lang == "ru":
+        kb.add(InlineKeyboardButton(text=f"6 месяцев {PRODUCTS[product][6]}₽", callback_data=f"{product}_6"))
+        kb.add(InlineKeyboardButton(text=f"8 месяцев {PRODUCTS[product][8]}₽", callback_data=f"{product}_8"))
+        kb.add(InlineKeyboardButton(text=f"10 месяцев {PRODUCTS[product][10]}₽", callback_data=f"{product}_10"))
+        kb.add(InlineKeyboardButton(text=f"12 месяцев {PRODUCTS[product][12]}₽", callback_data=f"{product}_12"))
+    else:
+        kb.add(InlineKeyboardButton(text=f"6 months {PRODUCTS[product][6]}₽", callback_data=f"{product}_6"))
+        kb.add(InlineKeyboardButton(text=f"8 months {PRODUCTS[product][8]}₽", callback_data=f"{product}_8"))
+        kb.add(InlineKeyboardButton(text=f"10 months {PRODUCTS[product][10]}₽", callback_data=f"{product}_10"))
+        kb.add(InlineKeyboardButton(text=f"12 months {PRODUCTS[product][12]}₽", callback_data=f"{product}_12"))
+    kb.add(InlineKeyboardButton(text=TEXTS[lang]["back"], callback_data="back_main"))
+    return kb
+
+
+# Хранение языковых предпочтений пользователей
+user_languages = {}
+
+
+# Команда /start с выбором языка
+@dp.message_handler(Command("start"))
+async def start(message: types.Message):
+    await message.answer(
+        text=TEXTS["ru"]["choose_language"],
+        reply_markup=language_keyboard()
+    )
+
+
+@dp.callback_query_handler(lambda c: c.data == "back_to_language")
+async def back_to_language(callback: types.CallbackQuery):
+    await callback.message.edit_text(
+        text=TEXTS["ru"]["choose_language"],
+        reply_markup=language_keyboard()
+    )
+
+
+# Обработчик выбора языка
+@dp.callback_query_handler(lambda c: c.data.startswith("lang_"))
+async def set_language(callback: types.CallbackQuery):
+    lang = callback.data.split("_")[1]
+    user_languages[callback.from_user.id] = lang
+
+    await callback.message.edit_text(
+        text=TEXTS[lang]["start"],
+        reply_markup=main_menu(lang)
+    )
+
+
+# Выбор товара
+@dp.callback_query_handler(lambda c: c.data in ["spotify", "youtube"])
+async def callback_handler(callback: types.CallbackQuery):
+    lang = user_languages.get(callback.from_user.id, "ru")
+
+    if callback.data == "spotify":
+        product_name = TEXTS[lang]["spotify"]
+    else:
+        product_name = TEXTS[lang]["youtube"]
+
+    await callback.message.edit_text(
+        text=TEXTS[lang]["choose_duration"].format(product=product_name),
+        reply_markup=duration_menu(callback.data, lang)
+    )
+
+
+# Выбор срока подписки
+@dp.callback_query_handler(lambda c: c.data.startswith("spotify_") or c.data.startswith("youtube_"))
+async def subscription_detail(callback: types.CallbackQuery):
+    lang = user_languages.get(callback.from_user.id, "ru")
+    product, months_str = callback.data.split("_")
+    months = int(months_str)
+    price = PRODUCTS[product][months]
+
+    # Локализация текста с месяцами
+    if lang == "ru":
+        months_text = f"{months} месяцев"
+    else:
+        months_text = f"{months} months"
+
+    if product == "spotify":
+        text = TEXTS[lang]["spotify_desc"].format(months=months_text, price=price)
+    else:
+        text = TEXTS[lang]["youtube_desc"].format(months=months_text, price=price)
+
+    kb = InlineKeyboardMarkup()
+    kb.add(InlineKeyboardButton(text=TEXTS[lang]["buy"], callback_data=f"buy_{product}_{months}"))
+    kb.add(InlineKeyboardButton(text=TEXTS[lang]["back"], callback_data=product))
+
+    await callback.message.edit_text(text=text, reply_markup=kb)
+
+
+# Обработка покупки
+@dp.callback_query_handler(lambda c: c.data.startswith("buy_"))
+async def process_purchase(callback: types.CallbackQuery):
+    lang = user_languages.get(callback.from_user.id, "ru")
+    _, product, months = callback.data.split("_")
+
+    # Уведомление об ожидании оплаты
+    await callback.message.edit_text(TEXTS[lang]["payment_wait"])
+
+    # Симуляция проверки оплаты
+    await asyncio.sleep(2)
+
+    # Проверка оплаты (заглушка)
+    payment_success = True
+
+    if payment_success:
+        account_data = get_next_account()
+        if account_data:
+            text = TEXTS[lang]["account_details"].format(
+                email=account_data['email'],
+                email_password=account_data['email_password'],
+                region=account_data['region'],
+                spotify_password=account_data['spotify_password']
+            )
+            await callback.message.edit_text(text)
+        else:
+            await callback.message.edit_text(TEXTS[lang]["no_accounts"])
+    else:
+        await callback.message.edit_text(TEXTS[lang]["payment_failed"])
+
+
+# Кнопка "Назад" в главное меню
+@dp.callback_query_handler(lambda c: c.data == "back_main")
+async def go_back(callback: types.CallbackQuery):
+    lang = user_languages.get(callback.from_user.id, "ru")
+    await callback.message.edit_text(
+        text=TEXTS[lang]["start"],
+        reply_markup=main_menu(lang)
+    )
+
+
+# Кнопка "Назад" из выбора товара
+@dp.callback_query_handler(lambda c: c.data in ["spotify", "youtube"])
+async def go_back_from_product(callback: types.CallbackQuery):
+    lang = user_languages.get(callback.from_user.id, "ru")
+    await callback.message.edit_text(
+        text=TEXTS[lang]["start"],
+        reply_markup=main_menu(lang)
+    )
+
+
+# Запуск бота
+async def main():
+    print("Бот запущен...")
+    try:
+        await dp.start_polling()
+    finally:
+        await bot.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
